@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Threat Hunting: Senior Level Field Manual</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c0f;
+    --panel: #0d1117;
+    --panel2: #111820;
+    --border: #1e2d3d;
+    --border-bright: #2a4a6b;
+    --red: #ff3b3b;
+    --orange: #ff8c00;
+    --yellow: #ffd60a;
+    --green: #00ff88;
+    --cyan: #00d4ff;
+    --blue: #4d9fff;
+    --purple: #b56bff;
+    --text: #c9d8e8;
+    --text-dim: #5a7a94;
+    --text-bright: #e8f4ff;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow Condensed', sans-serif;
+    --body: 'Barlow', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(0,0,0,0.04) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0a1520 0%, #0d1f30 50%, #080c0f 100%);
+    border-bottom: 1px solid var(--border-bright);
+    padding: 48px 48px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,212,255,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .header-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .header-badge::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--red);
+    border-radius: 50%;
+    animation: blink 1.2s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.2; }
+  }
+
+  h1 {
+    font-family: var(--sans);
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 900;
+    line-height: 0.95;
+    color: var(--text-bright);
+    letter-spacing: -1px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  h1 span { color: var(--cyan); }
+
+  .header-meta {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+
+  .meta-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+  }
+
+  .pill-red { background: rgba(255,59,59,0.1); border: 1px solid rgba(255,59,59,0.4); color: var(--red); }
+  .pill-cyan { background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.3); color: var(--cyan); }
+  .pill-yellow { background: rgba(255,214,10,0.08); border: 1px solid rgba(255,214,10,0.3); color: var(--yellow); }
+
+  /* Nav tabs */
+  .nav {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    overflow-x: auto;
+    padding: 0 48px;
+    gap: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .nav::-webkit-scrollbar { height: 2px; }
+  .nav::-webkit-scrollbar-track { background: var(--panel); }
+  .nav::-webkit-scrollbar-thumb { background: var(--border-bright); }
+
+  .nav-tab {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 16px 24px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+  /* Main layout */
+  .main { padding: 48px; max-width: 1400px; }
+
+  .section { display: none; }
+  .section.active { display: block; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Section headers */
+  .section-title {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 8px;
+  }
+
+  .section-headline {
+    font-family: var(--sans);
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 900;
+    color: var(--text-bright);
+    text-transform: uppercase;
+    line-height: 1;
+    margin-bottom: 32px;
+  }
+
+  /* Cards */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .main { padding: 24px; }
+    .header { padding: 32px 24px; }
+    .nav { padding: 0 24px; }
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: var(--border-bright); }
+
+  .card-accent {
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+  }
+
+  .accent-red { background: var(--red); }
+  .accent-orange { background: var(--orange); }
+  .accent-yellow { background: var(--yellow); }
+  .accent-green { background: var(--green); }
+  .accent-cyan { background: var(--cyan); }
+  .accent-blue { background: var(--blue); }
+  .accent-purple { background: var(--purple); }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .card h3 {
+    font-family: var(--sans);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-bright);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    line-height: 1.2;
+  }
+
+  .card p { color: var(--text); font-size: 14px; line-height: 1.7; }
+
+  /* Scenario blocks */
+  .scenario {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+
+  .scenario-header {
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .scenario-header h3 {
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-bright);
+    text-transform: uppercase;
+  }
+
+  .severity {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 12px;
+    border-radius: 2px;
+    letter-spacing: 2px;
+  }
+
+  .sev-critical { background: rgba(255,59,59,0.15); border: 1px solid var(--red); color: var(--red); }
+  .sev-high { background: rgba(255,140,0,0.15); border: 1px solid var(--orange); color: var(--orange); }
+  .sev-med { background: rgba(255,214,10,0.15); border: 1px solid var(--yellow); color: var(--yellow); }
+
+  .scenario-body { padding: 28px; }
+
+  /* Steps */
+  .steps { list-style: none; counter-reset: step; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    position: relative;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps li:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    margin-top: 2px;
+  }
+
+  .step-content strong {
+    display: block;
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-bright);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: #060a0d;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: #7ec8e3;
+    margin: 12px 0;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .code-block .comment { color: var(--text-dim); }
+  .code-block .keyword { color: var(--purple); }
+  .code-block .string { color: var(--green); }
+  .code-block .value { color: var(--yellow); }
+  .code-block .cmd { color: var(--cyan); }
+
+  .code-label {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  /* Hypothesis boxes */
+  .hypothesis {
+    background: var(--panel2);
+    border-left: 3px solid var(--yellow);
+    border-radius: 0 4px 4px 0;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  .hypothesis .h-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--yellow);
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+  }
+
+  .hypothesis .h-text {
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 10px;
+  }
+
+  .hypothesis .h-rationale { font-size: 13px; color: var(--text-dim); }
+
+  /* Interview questions */
+  .iq {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .iq-q {
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 24px;
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-bright);
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    cursor: pointer;
+    user-select: none;
+    text-transform: uppercase;
+  }
+
+  .iq-q .q-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cyan);
+    flex-shrink: 0;
+    margin-top: 3px;
+  }
+
+  .iq-q .q-toggle {
+    margin-left: auto;
+    font-size: 20px;
+    color: var(--text-dim);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .iq.open .q-toggle { transform: rotate(180deg); color: var(--cyan); }
+
+  .iq-a {
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.3s;
+  }
+
+  .iq.open .iq-a {
+    max-height: 1200px;
+    padding: 24px;
+  }
+
+  .iq-a .a-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--green);
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+  }
+
+  .iq-a p { font-size: 14px; margin-bottom: 12px; color: var(--text); }
+  .iq-a p:last-child { margin-bottom: 0; }
+
+  /* Tags */
+  .tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 2px;
+    letter-spacing: 1px;
+    background: rgba(0,212,255,0.07);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--cyan);
+  }
+  .tag-red { background: rgba(255,59,59,0.07); border-color: rgba(255,59,59,0.2); color: var(--red); }
+  .tag-green { background: rgba(0,255,136,0.07); border-color: rgba(0,255,136,0.2); color: var(--green); }
+  .tag-yellow { background: rgba(255,214,10,0.07); border-color: rgba(255,214,10,0.2); color: var(--yellow); }
+  .tag-purple { background: rgba(181,107,255,0.07); border-color: rgba(181,107,255,0.2); color: var(--purple); }
+
+  /* Alert/note blocks */
+  .alert {
+    display: flex;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 3px;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .alert-warn { background: rgba(255,214,10,0.05); border: 1px solid rgba(255,214,10,0.2); color: #e8d070; }
+  .alert-info { background: rgba(0,212,255,0.05); border: 1px solid rgba(0,212,255,0.15); color: #7ec8e3; }
+  .alert-danger { background: rgba(255,59,59,0.05); border: 1px solid rgba(255,59,59,0.2); color: #ff7070; }
+
+  .alert-icon { flex-shrink: 0; font-size: 16px; }
+
+  /* Day-in-life timeline */
+  .timeline { position: relative; padding-left: 32px; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px; top: 0; bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--cyan), var(--purple), transparent);
+  }
+
+  .tl-item {
+    position: relative;
+    margin-bottom: 28px;
+  }
+
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 6px;
+    width: 10px;
+    height: 10px;
+    background: var(--cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--cyan);
+  }
+
+  .tl-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--cyan);
+    margin-bottom: 4px;
+  }
+
+  .tl-title {
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-bright);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .tl-desc { font-size: 13px; color: var(--text); }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  ul.bullet { padding-left: 20px; margin: 10px 0; }
+  ul.bullet li { font-size: 13px; color: var(--text); margin-bottom: 6px; }
+  ul.bullet li strong { color: var(--text-bright); }
+
+  /* MITRE ATT&CK badge */
+  .mitre {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 10px;
+    background: rgba(181,107,255,0.1);
+    border: 1px solid rgba(181,107,255,0.3);
+    color: var(--purple);
+    border-radius: 2px;
+    margin: 2px;
+    letter-spacing: 1px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-badge">CLASSIFIED // THREAT HUNTING FIELD MANUAL</div>
+  <h1>Threat <span>Hunting</span><br>Senior Field Guide</h1>
+  <p style="color:var(--text-dim); max-width:600px; font-size:14px;">Real-world scenarios, daily operational workflow, hunting hypotheses, and senior-level interview questions — engineered for practitioners, not students.</p>
+  <div class="header-meta">
+    <span class="meta-pill pill-red">SENIOR / STAFF LEVEL</span>
+    <span class="meta-pill pill-cyan">THREAT INTEL · EDR · SIEM · DFIR</span>
+    <span class="meta-pill pill-yellow">MITRE ATT&CK MAPPED</span>
+  </div>
+</div>
+
+<nav class="nav">
+  <button class="nav-tab active" onclick="show('daily')">Daily Ops</button>
+  <button class="nav-tab" onclick="show('scenarios')">Critical Scenarios</button>
+  <button class="nav-tab" onclick="show('hypotheses')">Hunt Hypotheses</button>
+  <button class="nav-tab" onclick="show('interview')">Interview Q&A</button>
+</nav>
+
+<div class="main">
+
+<!-- ===================== SECTION: DAILY OPS ===================== -->
+<div id="daily" class="section active">
+  <div class="section-title">// SECTION 01</div>
+  <div class="section-headline">Day-in-the-Life: Senior Threat Hunter</div>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">◎</span>
+    <span>A senior threat hunter doesn't wait for alerts — they proactively challenge assumptions, generate hypotheses, and operate with attacker mindset. The job is 70% analysis, 20% tooling, 10% communication.</span>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-accent accent-cyan"></div>
+      <div class="card-label">// Core Responsibilities</div>
+      <h3>What You Actually Do</h3>
+      <ul class="bullet">
+        <li><strong>Proactive hunting:</strong> Hypothesis-driven searches across EDR, SIEM, network telemetry before alerts fire</li>
+        <li><strong>TTPs research:</strong> Daily consumption of threat intel feeds, APT reports, MITRE updates</li>
+        <li><strong>Detection engineering:</strong> Converting hunt findings into Sigma/YARA/detection rules</li>
+        <li><strong>Tooling & automation:</strong> Writing KQL/SPL/YARA/Python to scale hunts</li>
+        <li><strong>Cross-team coordination:</strong> Partnering with IR, SOC, red team, vuln mgmt</li>
+        <li><strong>Documentation:</strong> Hunt reports, playbooks, runbooks, executive summaries</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-accent accent-red"></div>
+      <div class="card-label">// Daily Toolstack</div>
+      <h3>Tools You Live In</h3>
+      <ul class="bullet">
+        <li><strong>EDR:</strong> CrowdStrike Falcon / SentinelOne / Microsoft Defender for Endpoint</li>
+        <li><strong>SIEM:</strong> Splunk / Microsoft Sentinel / Elastic SIEM</li>
+        <li><strong>Network:</strong> Zeek/Bro, Suricata, Corelight, Darktrace</li>
+        <li><strong>Threat Intel:</strong> MISP, OpenCTI, VirusTotal Enterprise, Recorded Future</li>
+        <li><strong>Sandboxing:</strong> ANY.run, JoeSandbox, Cuckoo</li>
+        <li><strong>Scripting:</strong> Python, PowerShell, KQL, SPL, YARA</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:8px;">// OPERATIONAL TEMPO</div>
+  <div class="section-headline" style="font-size:28px; margin-bottom:24px;">Typical 8-Hour Shift</div>
+
+  <div class="timeline">
+    <div class="tl-item">
+      <div class="tl-time">07:30 — INTEL BRIEF</div>
+      <div class="tl-title">Threat Intel Triage</div>
+      <div class="tl-desc">Review overnight threat intel: new CVEs, active campaigns (e.g., TA505 phishing wave), Mandiant/CrowdStrike flash reports. Cross-reference IOCs against your environment's asset inventory. Prioritize by asset criticality. Update MISP with new indicators.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">08:15 — ACTIVE HUNT</div>
+      <div class="tl-title">Hypothesis-Driven Hunting Block</div>
+      <div class="tl-desc">Execute today's hunt hypothesis (e.g., "Living-off-the-land binaries executing from user-writable paths in finance dept"). Run KQL/SPL queries against EDR telemetry. Pivot on anomalies. Document everything — even dead ends are data points.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">10:30 — DETECTION ENGINEERING</div>
+      <div class="tl-title">Convert Findings → Detections</div>
+      <div class="tl-desc">Yesterday's hunt found suspicious WMI lateral movement. Today: write a Sigma rule, tune false-positive threshold, test against historical data. Submit to SOC detection pipeline. Expected: 5–10 new/tuned detections per week.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">12:30 — SOC HANDOFF / ESCALATIONS</div>
+      <div class="tl-title">IR Escalation & Triage Support</div>
+      <div class="tl-desc">SOC escalated a suspicious PowerShell execution on a domain controller. You review process tree, parent-child relationships, command-line arguments, network connections. Determine: false positive, incident, or needs deeper investigation? Make the call. Assign or respond.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">14:00 — RED TEAM SYNC</div>
+      <div class="tl-title">Purple Team Alignment</div>
+      <div class="tl-desc">Weekly sync with red team. Review last week's simulated attack paths. Identify where hunting visibility gaps exist. Did red team's Cobalt Strike beacon go undetected? Why? Was it TLS traffic blending into O365 connections? Build coverage map.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">15:30 — HUNT REPORT</div>
+      <div class="tl-title">Documentation & Metric Tracking</div>
+      <div class="tl-desc">Write today's hunt report: hypothesis, methodology, query artifacts, findings, outcome, MITRE ATT&CK mapping, recommended detections. Log hunt metrics: dwell time estimates, assets surveyed, anomalies investigated, true/false positive ratio.</div>
+    </div>
+    <div class="tl-item">
+      <div class="tl-time">16:30 — CONTINUOUS LEARNING</div>
+      <div class="tl-title">Skill Development & Research</div>
+      <div class="tl-desc">30–45 min: Read new APT report, practice in lab environment (malware analysis, new LOLBAS technique), or contribute to internal threat intel wiki. This is non-negotiable for staying current.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SECTION: SCENARIOS ===================== -->
+<div id="scenarios" class="section">
+  <div class="section-title">// SECTION 02</div>
+  <div class="section-headline">Critical Real-World Scenarios</div>
+
+  <!-- SCENARIO 1 -->
+  <div class="scenario">
+    <div class="scenario-header">
+      <h3>⬡ Scenario 01 — Living-off-the-Land Lateral Movement via WMI + PowerShell</h3>
+      <span class="severity sev-critical">CRITICAL</span>
+    </div>
+    <div class="scenario-body">
+      <div class="tags">
+        <span class="mitre">T1047 · WMI</span>
+        <span class="mitre">T1059.001 · PowerShell</span>
+        <span class="mitre">T1021.006 · WinRM</span>
+        <span class="mitre">T1078 · Valid Accounts</span>
+      </div>
+
+      <div class="alert alert-danger">
+        <span class="alert-icon">⚠</span>
+        <span><strong>Situation:</strong> Finance department workstation flagged by SIEM for high volume of WMI queries to multiple internal hosts at 2:30 AM. No alerts from AV/EDR. User account is an active service account with domain admin privileges.</span>
+      </div>
+
+      <h4 style="font-family:var(--sans); font-size:16px; font-weight:700; color:var(--cyan); text-transform:uppercase; margin:20px 0 14px;">Hunt Approach — Step by Step</h4>
+
+      <ul class="steps">
+        <li>
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <strong>Establish Baseline (What's Normal?)</strong>
+            Query EDR for historical WMI activity from this host over last 90 days. Does it normally run wmic.exe? Does it normally initiate outbound WMI to remote hosts? Compare time-of-day activity patterns. Isolate the anomaly.
+            <div class="code-block">
+              <span class="comment">// Splunk: WMI process creation from finance hosts</span><br>
+              <span class="cmd">index=endpoint</span> <span class="keyword">host</span>=finance-* <span class="keyword">EventCode</span>=<span class="value">4688</span><br>
+              <span class="keyword">process_name</span>=<span class="string">"wmic.exe"</span> OR <span class="string">"wmiprvse.exe"</span><br>
+              | <span class="cmd">stats count</span> by host, user, process_name, CommandLine, _time<br>
+              | <span class="cmd">sort</span> -_time
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <strong>Map the Process Tree</strong>
+            Pull full process ancestry in EDR. Is wmic.exe spawned by cmd.exe → PowerShell → WMI? Was PowerShell launched with encoded commands (-EncodedCommand, -Enc)? Check parent process. Encoded command = near-certain adversary technique.
+            <div class="code-block">
+              <span class="comment"># CrowdStrike Falcon Query — suspicious PS ancestry</span><br>
+              <span class="keyword">event_simpleName</span>=ProcessRollup2<br>
+              | <span class="keyword">where</span> FileName=<span class="string">"powershell.exe"</span><br>
+              AND CommandLine CONTAINS <span class="string">"-Enc"</span><br>
+              AND ParentBaseFileName=<span class="string">"wmiprvse.exe"</span><br>
+              | <span class="cmd">table</span> ComputerName, UserName, CommandLine, ParentCommandLine
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <strong>Decode & Analyze Encoded PowerShell</strong>
+            Extract the Base64 encoded blob from CommandLine. Decode it. Look for: download cradles (IEX, Invoke-WebRequest), AMSI bypass patterns, credential dumping (Mimikatz patterns), scheduled task creation, WMI persistence.
+            <div class="code-block">
+              <span class="comment"># Python: decode encoded PowerShell</span><br>
+              <span class="keyword">import</span> base64<br>
+              encoded = <span class="string">"JABjAGwAaQBlAG4AdA..."</span><br>
+              decoded = base64.b64decode(encoded).decode(<span class="string">'utf-16-le'</span>)<br>
+              <span class="keyword">print</span>(decoded)<br>
+              <span class="comment"># Look for: IEX, Net.WebClient, DownloadString, AMSI bypass</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <strong>Lateral Movement Confirmation</strong>
+            Check Windows Event Log 4624 (logon) on destination hosts during the WMI activity window. Type 3 network logon from the service account? Cross-reference with WMI remote execution. Pull Sysmon Event ID 1 (process create) on destination hosts. Did wmiprvse.exe spawn anything?
+          </div>
+        </li>
+        <li>
+          <div class="step-num">05</div>
+          <div class="step-content">
+            <strong>Scope, Contain & Hand Off to IR</strong>
+            Enumerate all hosts touched by the service account in the window. Build a timeline. Determine if credential dumping occurred (check for LSASS access: Sysmon Event ID 10). If confirmed compromise — isolate hosts, revoke/rotate the service account, initiate IR. Draft executive-ready summary in parallel.
+          </div>
+        </li>
+      </ul>
+
+      <div class="alert alert-warn">
+        <span class="alert-icon">◈</span>
+        <span><strong>Key Hunt Metric:</strong> Dwell time from initial WMI execution to detection. If it's >24 hours, your detection coverage has a gap. Write a detection rule for WMI spawning PowerShell with encoded args immediately.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO 2 -->
+  <div class="scenario">
+    <div class="scenario-header">
+      <h3>⬡ Scenario 02 — C2 Beaconing Hidden in HTTPS Traffic (Domain Fronting)</h3>
+      <span class="severity sev-critical">CRITICAL</span>
+    </div>
+    <div class="scenario-body">
+      <div class="tags">
+        <span class="mitre">T1071.001 · Web Protocols</span>
+        <span class="mitre">T1090.004 · Domain Fronting</span>
+        <span class="mitre">T1132 · Data Encoding</span>
+        <span class="mitre">T1568 · Dynamic Resolution</span>
+      </div>
+
+      <div class="alert alert-danger">
+        <span class="alert-icon">⚠</span>
+        <span><strong>Situation:</strong> Darktrace flags a developer workstation making suspiciously regular HTTPS connections to *.azureedge.net every 60 seconds for 6 hours. No malware detected. Traffic volume is low — looks like legitimate CDN traffic at first glance.</span>
+      </div>
+
+      <h4 style="font-family:var(--sans); font-size:16px; font-weight:700; color:var(--cyan); text-transform:uppercase; margin:20px 0 14px;">Hunt Approach — Step by Step</h4>
+
+      <ul class="steps">
+        <li>
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <strong>Statistical Beaconing Analysis</strong>
+            Pull all outbound HTTPS connections from the host over 24 hours. Calculate inter-arrival times between connections to each destination. True beaconing: low jitter (stddev &lt;10s), regular intervals. Legitimate CDN: highly variable timing, larger volume.
+            <div class="code-block">
+              <span class="comment"># Python — beacon detection via jitter analysis</span><br>
+              <span class="keyword">import</span> pandas <span class="keyword">as</span> pd, numpy <span class="keyword">as</span> np<br>
+              df = pd.read_csv(<span class="string">'netflow.csv'</span>)<br>
+              df[<span class="string">'ts'</span>] = pd.to_datetime(df[<span class="string">'timestamp'</span>])<br>
+              grp = df.groupby(<span class="string">'dest_ip'</span>)<br>
+              beacons = grp[<span class="string">'ts'</span>].apply(<br>
+              &nbsp;&nbsp;lambda x: np.std(x.sort_values().diff().dt.seconds.dropna())<br>
+              )<br>
+              <span class="comment"># Low std deviation = beacon candidate</span><br>
+              <span class="keyword">print</span>(beacons[beacons &lt; <span class="value">5</span>])
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <strong>Inspect TLS Metadata (No Decryption Needed)</strong>
+            Even without SSL inspection, JA3/JA3S fingerprints reveal the TLS client/server signature. Cobalt Strike, Metasploit, and custom C2s have known JA3 hashes. Check Zeek SSL logs. Also look at: certificate subject mismatch, certificate age (new = suspicious), SNI vs. actual destination IP mismatch = domain fronting.
+            <div class="code-block">
+              <span class="comment"># Zeek SSL log analysis for JA3 fingerprints</span><br>
+              <span class="cmd">cat ssl.log</span> | <span class="cmd">zeek-cut</span> ts uid id.orig_h id.resp_h ja3 ja3s server_name<br>
+              | <span class="cmd">grep</span> <span class="string">"azureedge.net"</span><br>
+              <span class="comment"># Known Cobalt Strike JA3: 72a7c13d19b61af9aa2f70c0cdb3a79b</span><br>
+              <span class="comment"># If SNI says *.azureedge.net but resolved IP is actor-controlled → fronting</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <strong>DNS Resolution Audit</strong>
+            Check DNS logs for the hostname being resolved. Does it resolve to Microsoft CDN IPs (legitimate) or to a different AS? Threat actors use domain fronting: SNI points to legit CDN, but Host header routes to actor's C2. Inspect HTTP Host headers if you have SSL inspection or proxy logs.
+          </div>
+        </li>
+        <li>
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <strong>Endpoint Forensics — Find the Implant</strong>
+            On the endpoint: check for unsigned DLLs loaded by legitimate processes (DLL side-loading is common). Look for persistence: Run keys, scheduled tasks, WMI subscriptions. Memory analysis (Volatility) to find injected shellcode in legitimate process memory space.
+            <div class="code-block">
+              <span class="comment"># Volatility 3 — find injected memory regions</span><br>
+              <span class="cmd">python3 vol.py</span> -f memory.dmp windows.malfind<br>
+              <span class="comment"># Look for: RWX pages in non-image regions of legitimate processes</span><br>
+              <span class="comment"># e.g., svchost.exe with injected shellcode → Cobalt Strike</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">05</div>
+          <div class="step-content">
+            <strong>Attribution & Containment</strong>
+            Hash implant artifacts → VirusTotal / Malware Bazaar. Extract C2 config from memory (CS config parser). Identify campaign. Scope: which other hosts contacted same destination? Is this the patient zero or did it spread? Network-isolate host, preserve forensic image, escalate to IR.
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- SCENARIO 3 -->
+  <div class="scenario">
+    <div class="scenario-header">
+      <h3>⬡ Scenario 03 — Insider Threat: Data Exfiltration via Cloud Storage + DLP Bypass</h3>
+      <span class="severity sev-high">HIGH</span>
+    </div>
+    <div class="scenario-body">
+      <div class="tags">
+        <span class="mitre">T1567.002 · Exfiltration to Cloud</span>
+        <span class="mitre">T1048 · Exfil Over Alt Protocol</span>
+        <span class="mitre">T1078 · Valid Accounts</span>
+        <span class="mitre">T1560 · Archive Collected Data</span>
+      </div>
+
+      <div class="alert alert-danger">
+        <span class="alert-icon">⚠</span>
+        <span><strong>Situation:</strong> HR reports an employee gave 2 weeks notice yesterday. UEBA score for the user spiked 340% over baseline. Large file access volume on SharePoint, followed by traffic to a personal Google Drive account — not blocked by DLP because it's classified as "Google Workspace."</span>
+      </div>
+
+      <ul class="steps">
+        <li>
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <strong>UEBA Investigation — What Changed?</strong>
+            Pull the UEBA alert details. What behaviors drove the score? Typical insider threat signals: unusual off-hours access, accessing resources outside normal job scope, bulk file downloads, new USB device registration, email to personal accounts. Quantify the deviation from peer group baseline.
+          </div>
+        </li>
+        <li>
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <strong>DLP & Cloud App Security (CASB) Review</strong>
+            Check CASB logs (e.g., Microsoft Defender for Cloud Apps / Netskope). What was uploaded to Google Drive? File names, sizes, timestamps. Was it personal files or corporate data? Check SharePoint audit logs: which document libraries were accessed, what was downloaded, was it bulk download?
+            <div class="code-block">
+              <span class="comment">// KQL: SharePoint mass download hunt — Microsoft Sentinel</span><br>
+              OfficeActivity<br>
+              | <span class="keyword">where</span> Operation in (<span class="string">"FileDownloaded"</span>, <span class="string">"FileSyncDownloadedFull"</span>)<br>
+              | <span class="keyword">where</span> UserId == <span class="string">"target@company.com"</span><br>
+              | <span class="keyword">where</span> TimeGenerated > ago(<span class="value">14d</span>)<br>
+              | <span class="cmd">summarize</span> FileCount=count(), TotalBytes=sum(FileSizeBytes)<br>
+              &nbsp;&nbsp;by bin(TimeGenerated, <span class="value">1h</span>), UserId<br>
+              | <span class="keyword">where</span> FileCount > <span class="value">100</span>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <strong>Network Telemetry — Exfiltration Volume</strong>
+            Check proxy/firewall logs for upload traffic to Google Drive (drive.google.com / docs.google.com). Measure upload bytes. 500MB+ upload to personal cloud = significant. Check for other destinations: personal email (Gmail SMTP over 587), file sharing sites (WeTransfer, Mega.nz), Dropbox.
+          </div>
+        </li>
+        <li>
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <strong>Legal & HR Coordination</strong>
+            This is where technical and legal intersect. Do NOT alert the user. Loop in Legal and HR immediately. Document everything with timestamps. Preserve evidence forensically — legal hold on email, SharePoint, endpoint. Chain of custody matters. Your findings may go to court.
+          </div>
+        </li>
+        <li>
+          <div class="step-num">05</div>
+          <div class="step-content">
+            <strong>Remediation & Policy Gap</strong>
+            Post-incident: why did DLP not catch Google Drive uploads? Because CASB was configured to allow "Google Workspace" broadly. Recommendation: content-aware DLP inspection for all cloud storage, block personal Google Drive accounts while allowing corporate Google Workspace, implement egress rate limiting alerts.
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SECTION: HYPOTHESES ===================== -->
+<div id="hypotheses" class="section">
+  <div class="section-title">// SECTION 03</div>
+  <div class="section-headline">Hunt Hypotheses</div>
+
+  <div class="alert alert-info">
+    <span class="alert-icon">◎</span>
+    <span>Every hunt starts with a falsifiable hypothesis. Format: "I believe [threat actor/technique] is occurring because [indicator/intelligence], detectable via [telemetry source/query approach]." Bad hunters search randomly. Good hunters test specific hypotheses and measure outcomes.</span>
+  </div>
+
+  <div class="hypothesis">
+    <div class="h-label">// HYPOTHESIS 01 — CREDENTIAL ACCESS</div>
+    <div class="h-text">Adversaries are performing LSASS credential dumping via legitimate system utilities to evade AV detection on workstations in the engineering network.</div>
+    <div class="h-rationale">Rationale: Recent Mandiant report documents TA505 using comsvcs.dll MiniDump technique. Engineering hosts have domain admin users frequently logged in, making them high-value targets. EDR rules focus on Mimikatz signatures, not LOLBin variants.</div>
+    <div class="tags" style="margin-top:12px;">
+      <span class="tag-purple" style="background:rgba(181,107,255,0.07); border:1px solid rgba(181,107,255,0.2); color:var(--purple); font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:2px; letter-spacing:1px; display:inline-block;">MITRE T1003.001</span>
+      <span class="tag">Sysmon EID 10</span>
+      <span class="tag">EDR Telemetry</span>
+      <span class="tag-red">High Value</span>
+    </div>
+    <div class="code-block" style="margin-top:12px;">
+      <span class="comment">// Hunt: LSASS access via comsvcs MiniDump</span><br>
+      <span class="keyword">event_simpleName</span>=ProcessRollup2<br>
+      | <span class="keyword">where</span> CommandLine MATCHES <span class="string">".*comsvcs.*MiniDump.*lsass.*"</span><br>
+      OR CommandLine MATCHES <span class="string">".*Out-Minidump.*"</span><br>
+      OR (FileName=<span class="string">"rundll32.exe"</span> AND CommandLine CONTAINS <span class="string">"comsvcs"</span>)<br>
+      | <span class="cmd">table</span> ComputerName, UserName, CommandLine, SHA256HashData
+    </div>
+  </div>
+
+  <div class="hypothesis">
+    <div class="h-label">// HYPOTHESIS 02 — PERSISTENCE</div>
+    <div class="h-text">A threat actor has established WMI event subscription persistence on servers in the DMZ following last quarter's vulnerability exposure window.</div>
+    <div class="h-rationale">Rationale: WMI subscriptions are rarely used legitimately on servers, persist across reboots without touching disk in traditional locations, and are invisible to most AV products. The DMZ had unpatched systems for ~3 weeks — a likely dwell window.</div>
+    <div class="tags" style="margin-top:12px;">
+      <span class="tag-purple" style="background:rgba(181,107,255,0.07); border:1px solid rgba(181,107,255,0.2); color:var(--purple); font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:2px; letter-spacing:1px; display:inline-block;">MITRE T1546.003</span>
+      <span class="tag">WMI Repository</span>
+      <span class="tag">Sysmon EID 19/20/21</span>
+    </div>
+    <div class="code-block" style="margin-top:12px;">
+      <span class="comment"># PowerShell: enumerate WMI event subscriptions</span><br>
+      <span class="cmd">Get-WMIObject</span> -Namespace root\subscription -Class __EventFilter<br>
+      <span class="cmd">Get-WMIObject</span> -Namespace root\subscription -Class __EventConsumer<br>
+      <span class="cmd">Get-WMIObject</span> -Namespace root\subscription -Class __FilterToConsumerBinding<br>
+      <span class="comment"># Legitimate: empty or known SCCM/management entries only</span><br>
+      <span class="comment"># Suspicious: any entry with script consumer / command line consumer</span>
+    </div>
+  </div>
+
+  <div class="hypothesis">
+    <div class="h-label">// HYPOTHESIS 03 — DISCOVERY & RECONNAISSANCE</div>
+    <div class="h-text">An attacker with initial access is performing internal Active Directory reconnaissance using built-in Windows tools to avoid triggering endpoint detections.</div>
+    <div class="h-rationale">Rationale: LOLBin AD recon (nltest, net group, dsquery, ldapsearch) is common post-initial-access behavior. With broad initial access from phishing campaigns circulating targeting our sector this month, this is a high-probability scenario to hunt against immediately.</div>
+    <div class="tags" style="margin-top:12px;">
+      <span class="tag-purple" style="background:rgba(181,107,255,0.07); border:1px solid rgba(181,107,255,0.2); color:var(--purple); font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:2px; letter-spacing:1px; display:inline-block;">MITRE T1018 · T1069 · T1087</span>
+      <span class="tag">Windows Event 4688</span>
+      <span class="tag">EDR Process Telemetry</span>
+    </div>
+    <div class="code-block" style="margin-top:12px;">
+      <span class="comment">// Splunk: AD recon via LOLBins</span><br>
+      index=endpoint EventCode=<span class="value">4688</span><br>
+      process_name IN (<span class="string">"nltest.exe"</span>,<span class="string">"net.exe"</span>,<span class="string">"dsquery.exe"</span>,<span class="string">"whoami.exe"</span>,<span class="string">"ipconfig.exe"</span>)<br>
+      | <span class="cmd">bin</span> _time span=<span class="value">5m</span><br>
+      | <span class="cmd">stats</span> dc(process_name) as unique_recon_tools, values(CommandLine) by host, user, _time<br>
+      | <span class="keyword">where</span> unique_recon_tools >= <span class="value">3</span><br>
+      <span class="comment">// 3+ recon tools from same user in 5min = strong signal</span>
+    </div>
+  </div>
+
+  <div class="hypothesis">
+    <div class="h-label">// HYPOTHESIS 04 — C2 COMMUNICATION</div>
+    <div class="h-text">A compromised endpoint is communicating with a C2 server over DNS tunneling, bypassing HTTP-based proxy controls and DLP.</div>
+    <div class="h-rationale">Rationale: DNS egress is rarely restricted. DNS tunneling tools (dnscat2, iodine) encode C2 traffic in DNS queries. Organizations with strong HTTP/S controls are increasingly targeted via DNS. Recent threat intel shows UNC3524 using DNS-based C2 against financial targets.</div>
+    <div class="tags" style="margin-top:12px;">
+      <span class="tag-purple" style="background:rgba(181,107,255,0.07); border:1px solid rgba(181,107,255,0.2); color:var(--purple); font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:2px; letter-spacing:1px; display:inline-block;">MITRE T1071.004</span>
+      <span class="tag">DNS Logs</span>
+      <span class="tag">Zeek DNS</span>
+      <span class="tag-red">Evasion</span>
+    </div>
+    <div class="code-block" style="margin-top:12px;">
+      <span class="comment"># Hunt: DNS tunneling detection — high entropy subdomains</span><br>
+      <span class="keyword">import</span> math, collections<br>
+      <span class="keyword">def</span> entropy(s):<br>
+      &nbsp;&nbsp;p = [s.count(c)/len(s) <span class="keyword">for</span> c <span class="keyword">in</span> set(s)]<br>
+      &nbsp;&nbsp;<span class="keyword">return</span> -sum(x*math.log2(x) <span class="keyword">for</span> x <span class="keyword">in</span> p)<br>
+      <span class="comment"># Flag subdomains with entropy > 3.5 and length > 30 chars</span><br>
+      <span class="comment"># Also flag: unusually high query rate to single domain, TXT/NULL record queries</span>
+    </div>
+  </div>
+
+  <div class="hypothesis">
+    <div class="h-label">// HYPOTHESIS 05 — SUPPLY CHAIN / TRUSTED TOOL ABUSE</div>
+    <div class="h-text">A legitimate software update mechanism (e.g., software deployment tool) is being abused by an attacker who has compromised an internal build server to push malicious payloads to endpoints.</div>
+    <div class="h-rationale">Rationale: Supply chain attacks (à la SolarWinds, 3CX) leverage trusted software update paths. Internal build servers with write access to deployment systems are high-value lateral movement targets. If a developer workstation was compromised, build server access is the next pivot.</div>
+    <div class="tags" style="margin-top:12px;">
+      <span class="tag-purple" style="background:rgba(181,107,255,0.07); border:1px solid rgba(181,107,255,0.2); color:var(--purple); font-family:var(--mono); font-size:10px; padding:3px 10px; border-radius:2px; letter-spacing:1px; display:inline-block;">MITRE T1195.002</span>
+      <span class="tag-red">Supply Chain</span>
+      <span class="tag">Code Signing</span>
+      <span class="tag">Build Integrity</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SECTION: INTERVIEW ===================== -->
+<div id="interview" class="section">
+  <div class="section-title">// SECTION 04</div>
+  <div class="section-headline">Senior Interview Q&A</div>
+
+  <div class="alert alert-warn">
+    <span class="alert-icon">◈</span>
+    <span>These are real questions asked at senior / staff threat hunter interviews at FAANG security teams, investment banks, MSSPs, and government agencies. Click each question to reveal the expert-level answer.</span>
+  </div>
+
+  <div class="iq" onclick="toggleIQ(this)">
+    <div class="iq-q">
+      <span class="q-num">Q01</span>
+      <span>You're told to build a threat hunting program from scratch at a company with only a basic SIEM and no EDR. Walk me through your first 90 days.</span>
+      <span class="q-toggle">▾</span>
+    </div>
+    <div class="iq-a">
+      <div class="a-label">// EXPERT ANSWER</div>
+      <p><strong>Days 1–30: Visibility Assessment.</strong> You can't hunt what you can't see. Audit your log sources: what's in the SIEM? Windows events (4624, 4625, 4688, 4698, 4720, 4732)? DNS? Proxy? Netflow? Firewall? Map your visibility against MITRE ATT&CK — you'll immediately see massive blind spots. This becomes your gap report.</p>
+      <p><strong>Days 31–60: Quick Wins & Intel Integration.</strong> Without EDR, focus on network-based hunting (DNS anomalies, beaconing via netflow, unusual outbound connections) and Windows event log hunting (LOLBin usage, abnormal service installs, bulk account lockouts). Integrate a free threat intel feed (MISP, AlienVault OTX) against your SIEM. These quick wins build stakeholder trust and justify EDR budget.</p>
+      <p><strong>Days 61–90: Framework & Metrics.</strong> Define your hunt workflow: hypothesis → execution → finding → detection or false positive. Set baseline metrics: hunts per month, TTD (time to detect), dwell time estimates, detection coverage percentage. Present findings to leadership with ROI framing. Begin the EDR procurement argument with evidence you've gathered.</p>
+      <p><strong>Key principle:</strong> Don't try to build the perfect program. Build a program that improves incrementally, measures itself, and demonstrates value. Tools follow process, not the other way around.</p>
+    </div>
+  </div>
+
+  <div class="iq" onclick="toggleIQ(this)">
+    <div class="iq-q">
+      <span class="q-num">Q02</span>
+      <span>Explain the difference between IOC-based hunting and TTP-based hunting, and why a mature program prioritizes TTPs.</span>
+      <span class="q-toggle">▾</span>
+    </div>
+    <div class="iq-a">
+      <div class="a-label">// EXPERT ANSWER</div>
+      <p><strong>IOC-based hunting</strong> searches for specific artifacts: IP addresses, file hashes, domain names, registry keys. It's fast and operationally useful, but fundamentally reactive and brittle. Adversaries rotate IOCs in hours — a C2 IP blocked today is abandoned within 24 hours. IOCs are at the bottom of the Pyramid of Pain (David Bianco's model) — easy for attackers to change, limited long-term value.</p>
+      <p><strong>TTP-based hunting</strong> targets adversary behaviors: how they execute code, persist, move laterally, exfiltrate. These are at the top of the Pyramid of Pain — extremely costly for adversaries to change because it requires rewriting tooling, retraining operators, or abandoning entire attack chains. A hunt for "WMI spawning PowerShell with encoded commands" catches Cobalt Strike, Metasploit, and custom implants regardless of their specific IOCs.</p>
+      <p><strong>Mature programs use both strategically:</strong> IOCs for fast, automated enrichment and blocking at scale; TTPs for proactive hunting, detection engineering, and measuring adversary behavior across campaigns. A common interview mistake is treating them as mutually exclusive — they're complementary layers.</p>
+      <p><strong>Practical example:</strong> When SolarWinds hit, organizations with only IOC-based defenses were blind. Organizations hunting TTPs for "unexpected network connections from build/monitoring tools" or "signed binaries making unusual DNS requests" had a detection path even before IOCs were published.</p>
+    </div>
+  </div>
+
+  <div class="iq" onclick="toggleIQ(this)">
+    <div class="iq-q">
+      <span class="q-num">Q03</span>
+      <span>A process on a host is making thousands of LDAP queries to the domain controller. How do you determine if this is normal Active Directory operation or adversarial reconnaissance?</span>
+      <span class="q-toggle">▾</span>
+    </div>
+    <div class="iq-a">
+      <div class="a-label">// EXPERT ANSWER</div>
+      <p><strong>Start with context, not conclusions.</strong> LDAP queries to DCs are normal — AD health, login validation, group policy, monitoring tools all generate them. The question is whether the pattern is anomalous for this specific host and process.</p>
+      <p><strong>Key differentiators to investigate:</strong> (1) <em>Process identity</em> — is it a known enterprise tool (SCCM, Okta sync, monitoring agent) or an unexpected binary? (2) <em>Query content</em> — benign queries are usually narrow-scope; recon queries enumerate entire AD: all users, all groups, adminSDHolder, unconstrained delegation targets, SPNs (Kerberoasting prep). (3) <em>Rate and timing</em> — bulk enumeration in seconds vs. normal trickle over hours. (4) <em>Account context</em> — is a non-privileged user account making admin-scope queries?</p>
+      <p><strong>Technical investigation:</strong> Enable LDAP diagnostic logging on DCs (Event ID 1644 with appropriate filter). Review the search filters in queries. Bloodhound/SharpHound LDAP queries have characteristic patterns: querying for ms-DS-AllowedToDelegateTo, adminCount=1, or requesting all user objects with specific attributes in bulk. Compare to your LDAP baseline if you have one.</p>
+      <p><strong>If adversarial:</strong> This indicates post-exploitation — attacker has initial access and is mapping the AD environment to plan lateral movement and privilege escalation. Scope the initial access, contain the host, initiate IR. Check if any Kerberoastable accounts were identified (they'll be targeted for ticket requests next).</p>
+    </div>
+  </div>
+
+  <div class="iq" onclick="toggleIQ(this)">
+    <div class="iq-q">
+      <span class="q-num">Q04</span>
+      <span>How would you detect a Kerberoasting attack in progress, and what's your response if you find it?</span>
+      <span class="q-toggle">▾</span>
+    </div>
+    <div class="iq-a">
+      <div class="a-label">// EXPERT ANSWER</div>
+      <p><strong>What is it:</strong> Kerberoasting requests Kerberos TGS tickets for service accounts with SPNs. These tickets are encrypted with the service account's NTLM hash, extracted offline, and cracked. No elevated privileges needed for the request — any domain user can do it.</p>
+      <p><strong>Detection via Windows Event ID 4769</strong> (Kerberos Service Ticket Request). Signals: (1) RC4 encryption type (0x17) requested instead of AES — RC4 is weak, chosen specifically for faster cracking; (2) Multiple TGS requests in short timeframe from one account; (3) Requests targeting service accounts outside of business hours or from a workstation that doesn't normally use those services; (4) Requesting tickets for high-privilege service accounts (backup, SQL, admin) from a non-server host.</p>
+      <div class="code-block">
+        <span class="comment">// KQL: Detect Kerberoasting — bulk RC4 TGS requests</span><br>
+        SecurityEvent<br>
+        | <span class="keyword">where</span> EventID == <span class="value">4769</span><br>
+        | <span class="keyword">where</span> TicketEncryptionType == <span class="string">"0x17"</span>  <span class="comment">// RC4</span><br>
+        | <span class="keyword">where</span> ServiceName !endswith <span class="string">"$"</span>  <span class="comment">// exclude computer accounts</span><br>
+        | <span class="cmd">summarize</span> count() by bin(TimeGenerated,<span class="value">5m</span>), Account, IpAddress<br>
+        | <span class="keyword">where</span> count_ > <span class="value">5</span>  <span class="comment">// 5+ service accounts in 5min = Kerberoasting</span>
+      </div>
+      <p><strong>Response:</strong> Identify which service accounts had tickets requested. Immediately assess their password strength and privilege level. If an account hasn't had its password rotated in >1 year, assume it's been cracked. Rotate all affected service account passwords immediately. Longer term: convert service accounts to Managed Service Accounts (MSAs) which have auto-rotating 240-char passwords that are uncrackable. Implement honeypot SPNs (fake Kerberoastable accounts that alert immediately when a ticket is requested — no legitimate user should ever request them).</p>
+    </div>
+  </div>
+
+  <div class="iq" onclick="toggleIQ(this)">
+    <div class="iq-q">
+      <span class="q-num">Q05</span>
+      <span>You discover an attacker has been in your environment for 47 days. How do you determine scope without tipping them off?</span>
+      <span class="q-toggle">▾</span>
+    </div>
+    <div class="iq-a">
+      <div class="a-label">// EXPERT ANSWER</div>
+      <p><strong>First principle: observe before acting.</strong> Do not block, isolate, or alert the attacker until you've fully mapped their footprint. Premature containment causes them to destroy evidence, accelerate exfiltration, or deploy ransomware immediately.</p>
+      <p><strong>Timeline reconstruction:</strong> Identify patient zero — earliest artifact of compromise. Work forward chronologically. Use EDR telemetry, SIEM logs, authentication logs, DNS/proxy logs, email logs. Build a minute-by-minute timeline. Tools: Timeline Explorer, Plaso/log2timeline, custom Python. Answer: When did they arrive? Via what vector? What have they touched?</p>
+      <p><strong>Scope mapping:</strong> From patient zero, trace all lateral movement. Every remote authentication, every WMI/PSRemoting/RDP session, every scheduled task creation, every service install. Map the blast radius on a network topology diagram. Identify: data accessed, credentials obtained, persistence mechanisms placed, potential exfiltration.</p>
+      <p><strong>Covert monitoring:</strong> If resources allow, set up network TAP / mirror on key segments to capture live attacker activity. Don't block C2 yet — watch what they're doing. Are they collecting data? Moving toward crown jewels? This intelligence shapes your containment strategy. Coordinate with Legal — covert monitoring of an intruder in your own network is generally lawful but verify jurisdiction.</p>
+      <p><strong>Containment strategy:</strong> When ready, execute coordinated simultaneous containment across ALL identified compromised hosts at once — not host by host. Simultaneous is critical. Sequentially isolating hosts telegraphs your awareness and gives the attacker time to destroy evidence and pivot elsewhere. Have IR team and comms plan ready before you pull the trigger.</p>
+    </div>
+  </div>
+
+  <div class="iq" onclick="toggleIQ(this)">
+    <div class="iq-q">
+      <span class="q-num">Q06</span>
+      <span>How do you measure the effectiveness of a threat hunting program? What metrics do you report to leadership?</span>
+      <span class="q-toggle">▾</span>
+    </div>
+    <div class="iq-a">
+      <div class="a-label">// EXPERT ANSWER</div>
+      <p><strong>Technical metrics (for the team):</strong> Mean Dwell Time Reduction (how long adversaries existed before detection — trend over quarters), Hunt-to-Detection Conversion Rate (% of hunts that generate net-new detections), MITRE ATT&CK Coverage Score (what % of relevant TTPs do your detections cover), False Positive Rate per detection rule, Number of confirmed incidents discovered through hunting vs. reactive alerts.</p>
+      <p><strong>Executive metrics (for leadership):</strong> Risk reduction narrative is more powerful than raw numbers. "Our hunting program identified 3 incidents this quarter that evaded all automated controls — estimated average dwell time if undiscovered would have been 40+ days." Translate technical findings to business risk: "Adversary had access to IP repository for 12 days." Cost avoidance: "Identifying this before ransomware deployment avoided estimated $2–8M incident response and recovery cost."</p>
+      <p><strong>Trap to avoid:</strong> Don't measure success by volume of hunts run. A hunter running 50 low-quality hunts with zero findings is less valuable than one running 10 rigorous hypothesis-driven hunts that discover 2 true positives. Quality over quantity. Measure outcomes, not activity.</p>
+      <p><strong>Maturity model reporting:</strong> Use a hunting maturity model (HM0–HM4) to track program evolution. Show leadership that you're progressing from reactive (HM0) to data-driven automated hypothesis generation (HM4). This justifies investment and demonstrates strategic thinking.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+  <div class="alert alert-info" style="margin-top:0;">
+    <span class="alert-icon">◎</span>
+    <span><strong>Senior Hunter Mindset:</strong> Interviewers at this level aren't looking for correct answers — they're looking for how you think. Walk through your reasoning out loud. Show your methodology. Acknowledge uncertainty and explain how you'd resolve it. Demonstrate attacker empathy — you understand adversary goals, not just their tools.</span>
+  </div>
+
+</div>
+
+</div><!-- end main -->
+
+<script>
+function show(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function toggleIQ(el) {
+  el.classList.toggle('open');
+}
+</script>
+</body>
+</html>
